@@ -6,12 +6,12 @@ Note that these preprocessing steps assume that you have another directory, `dat
 
 Specifically, you should have downloaded callhome and switchboard into the following paths:
 
-```../data/callhome_english```
+```
+../data/callhome_english
+../data/swda
+```
 
 [Link to download CallHome](https://ca.talkbank.org/data/CallHome/eng.zip)
-
-```../data/swda```
-
 [Link to download Switchboard](http://compprag.christopherpotts.net/code-data/swda.zip)
 
 ## Switchboard

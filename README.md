@@ -11,7 +11,7 @@ Specifically, you should have downloaded callhome and switchboard into the follo
 ../data/swda
 ```
 
-[Link to download CallHome](https://ca.talkbank.org/data/CallHome/eng.zip)
+[Link to download CallHome](https://ca.talkbank.org/data/CallHome/eng.zip)  
 [Link to download Switchboard](http://compprag.christopherpotts.net/code-data/swda.zip)
 
 ## Switchboard

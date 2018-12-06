@@ -12,6 +12,8 @@ Specifically, you should have downloaded callhome and switchboard into the follo
 
 ```../data/swda```
 
+[Link to Switchboard](http://compprag.christopherpotts.net/code-data/swda.zip)
+
 ## Switchboard
 
 Switchboard has already been separated into .csv files with tags for NPs and dialogue acts, so the preprocessing just involves concatenating these files and incorporating metadata.

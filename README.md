@@ -8,11 +8,11 @@ Specifically, you should have downloaded callhome and switchboard into the follo
 
 ```../data/callhome_english```
 
-[Link to CallHome](https://ca.talkbank.org/access/CallHome/eng.html)
+[Link to download CallHome](https://ca.talkbank.org/data/CallHome/eng.zip)
 
 ```../data/swda```
 
-[Link to Switchboard](http://compprag.christopherpotts.net/code-data/swda.zip)
+[Link to download Switchboard](http://compprag.christopherpotts.net/code-data/swda.zip)
 
 ## Switchboard
 

@@ -59,3 +59,7 @@ You can also run a separate script to identify the *length* of each NP.
 python src/features/analyze_lengths.py --dataset={DATASET_NAME}
 ```
 
+# Analysis of RE distributions by turn and dataset
+
+Finally, you can produce a report by *knitting* the .Rmd file at `src/analysis/analysis_report.Rmd`. 
+

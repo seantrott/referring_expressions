@@ -55,7 +55,7 @@ def identify_bare_deictic(text):
 		if word in DEICTIC:
 			word_next, pos_next = tags[index+1]
 			if pos_next[0] == "V":
-				deictic_nps.append([word, 'DT'])
+				deictic_nps.append([(word, 'DeicticDT')])
 	return deictic_nps
 
 
@@ -73,6 +73,8 @@ def find_noun_phrases(text):
 		returned.append(pos)
 
 	bare_deictic = identify_bare_deictic(text)
+	# Add to list of NPs
+	returned += bare_deictic
 	return returned
 
 

@@ -65,5 +65,5 @@ python src/features/analyze_lengths.py --dataset={DATASET_NAME}
 
 # Analysis of RE distributions by turn and dataset
 
-Finally, you can produce a report by *knitting* the .Rmd file at `src/analysis/analysis_report.Rmd`. 
+Finally, you can produce a report by *knitting* the .Rmd file at `src/reports/analysis_report.Rmd`. 
 

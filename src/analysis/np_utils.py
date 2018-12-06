@@ -29,7 +29,7 @@ one_word_np_mappings = {'PRP': 'PRP',
                         # 'IN': None,
                         # 'JJ': None, # Adjective
                         # 'WDT': 'WDT',
-                        'DT': 'BareDT'
+                        'DeicticDT': 'DeicticDT'
                         # 'CD': 'DigitNP',
                         # 'RB': None, # Adverb
                         # 'TO': None,

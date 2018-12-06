@@ -51,9 +51,12 @@ def main(dataset_name):
             'gerund_NP': len([cat for cat in categories if cat == 'GerundNP']),
             'noun_noun': len([cat for cat in categories if cat == 'NounNoun']),
             'wh_np': len([cat for cat in categories if cat == 'WH_NP']),
+            'deictic_np': len([cat for cat in categories if cat == 'DeicticDT']),
             'total_REs': len(categories)
             })
 
+        if len([cat for cat in categories if cat == 'DeicticDT']):
+            print(turn)
 
     df_identified = pd.DataFrame(identified)
 

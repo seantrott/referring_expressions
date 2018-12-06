@@ -35,6 +35,16 @@ Now you can use spaCy to identify **noun chunks** in each turn. Substitute eithe
 python src/features/identify_np.py --dataset={DATASET_NAME}
 ```
 
+## Evaluating identification
+
+You might also want to know how well spaCy performs. We can use the Switchboard data as a baseline. Run:
+
+```
+python src/features/evaluate_spacy_tags.py
+```
+
+
+
 # Categorize NPs
 
 Once you've identified each NP, you can further categorize them into the pre-specified bins (e.g. *full NP*, *PRP_3rd*, etc.).
@@ -48,3 +58,4 @@ You can also run a separate script to identify the *length* of each NP.
 ```
 python src/features/analyze_lengths.py --dataset={DATASET_NAME}
 ```
+

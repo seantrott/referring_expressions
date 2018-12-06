@@ -1,0 +1,444 @@
+---
+title: "Referring Expressions Across Switchboard and CallHome"
+output: html_document
+---
+
+```{r include = FALSE}
+library(tidyverse)
+library(lme4)
+library(reshape)
+```
+
+
+# Introduction
+
+In this report, we ask whether certain kinds of referring expressions (REs) are used more frequently in both the **Switchboard** and **CallHome** corpora. Specifically, we are interested in the question of whether REs change in length and/or signal autonomy (e.g. *full NP* vs. *3rd-person pronoun*) as a discourse proceeds, and whether the distribution of RE categories changes as a function of corpus (e.g. whether people use shorter and/or more ambiguous expressions when speaking to friends/family vs. strangers). 
+
+For each turn, we extracted noun chunks using [*spaCy*](https://spacy.io/), a natural language parser for Python. We then categorized each noun chunk into one of several categories (see below).
+
+
+# Switchboard Analysis
+
+## Dataset
+
+Here, we deal with two datasets. The first considers the *count* of REs of each category for each transcribe dialogue turn. The second considers each RE as an observation, and gives us a metric for its *length* (e.g. number of words).
+
+**QUESTION**: Should we only consider turns in which we successfully identified at least one RE?
+
+```{r}
+setwd("/Users/seantrott/Dropbox/UCSD/Research/Ambiguity/Corpus_Analysis/ReferringExpressions")
+
+df_switchboard = read_csv("data/processed/switchboard_labeled.csv")
+
+df_switchboard$topic = factor(df_switchboard$topic_description)
+df_switchboard$from_caller_sex = factor(df_switchboard$from_caller_sex)
+df_switchboard$to_caller_sex = factor(df_switchboard$to_caller_sex)
+df_switchboard$turn_number = df_switchboard$utterance_index
+
+```
+
+There are `r nrow(df_switchboard)` turns overall, across `r length(unique(df_switchboard$conversation_no))` different conversations. Each turn had an average of `r mean(df_switchboard$total_REs)` REs overall. 
+
+
+```{r}
+setwd("/Users/seantrott/Dropbox/UCSD/Research/Ambiguity/Corpus_Analysis/ReferringExpressions")
+
+df_sb_lengths = read_csv("data/processed/switchboard_np_lengths.csv")
+```
+
+
+### Turn distribution
+
+However, if we plot out the turn distribution, we see that not all conversations contain the same number of turns. In other words, many conversations end before 100-200 turns.
+
+```{r}
+df_switchboard %>%
+  ggplot(aes(x = utterance_index)) +
+  geom_histogram() +
+  labs(x = "Turn",
+       y = "Count",
+       title = "Distribution of turns across dataset") +
+  theme_minimal()
+```
+
+In fact, only `r scales::percent(nrow(filter(df_switchboard, utterance_index > 100)) / nrow(df_switchboard))` of our observations come from turns past 100. Because this creates a very unbalanced dataset, we'll focus here on the first 100 turns of each conversation.
+
+We also just select the columns we're interested in: utterance index, relevant RE counts, and the speaker (to add as a random effect).
+
+```{r}
+df_switchboard$speaker_recoded = paste(df_switchboard$caller, df_switchboard$conversation_no, sep = "_")
+
+df_switchboard_critical = df_switchboard %>%
+  filter(turn_number <= 100) %>%
+  select(turn_number, speaker_recoded, full_NP, prp_1st, prp_2nd,
+         prp_3rd, poss_NP, proper_NP, noun_noun, undetermined_NP, gerund_NP, wh_np)
+```
+
+
+### Reformatting the data
+
+Now we melt the **turn data** into a new format for easier analysis and plotting.
+
+```{r}
+sb_melted = melt(as.data.frame(df_switchboard_critical), id=c("turn_number", "speaker_recoded"))
+sb_melted$RE_type = sb_melted$variable
+sb_melted$count = sb_melted$value
+
+```
+
+
+Additionally, for the **length data**, we restrict our analysis to the first 100 turns.
+
+**QUESTION**: Also restrict to certain RE types? (Full NP, PossNP, etc.? Exclude pronouns?)
+
+```{r}
+df_sb_lengths = df_sb_lengths %>%
+  filter(utterance_index <= 100)
+```
+
+
+## Proportion of each RE Type
+
+As seen below, not all RE types were used equally. Full noun phrases enjoyed the majority of usage, as well as 1st-person pronouns, 3rd-person pronouns, and bare NPs.
+
+```{r}
+counts = sb_melted %>%
+  group_by(RE_type) %>%
+  summarise(total = sum(count))
+
+counts$proportion = counts$total / sum(counts$total)
+
+```
+
+```{r}
+counts %>%
+  ggplot(aes(x="", y = proportion, fill=RE_type))+
+  geom_bar(width = 1, stat = "identity") + 
+  coord_polar("y", start=0) +
+  labs(x = "",
+       y ="",
+       title = "Switchboard RE Distributions") +
+  theme_minimal()
+
+```
+
+## Primary analyses
+
+We are particularly interested in how these proportions shift over time. That is, as a conversation proceeds, are some REs (like full NPs) used less, while others (like 3rd-person pronouns) are used more?
+
+```{r}
+sb_melted %>%
+  # filter(count > 0) %>%
+  ggplot(aes(x = turn_number,
+             y = count,
+             color = RE_type)) +
+  geom_point(stat = "summary", fun.y = "mean") +
+  geom_smooth(method = "lm") +
+  # geom_smooth() +
+  theme_minimal()
+```
+
+
+### RE Type by Turn
+
+First we do an analysis with a simple Poisson regression, predicting the *count* of a given RE type (full NP, 3rd-person pronoun) as a function of the turn.
+
+Using a likelihood ratio test on nested model comparisons, we see that a model including the interaction bewteen **RE Type** and **Turn Number** explains more variance than a model with only the fixed effects.
+
+```{r}
+
+model_simple = glm(data = sb_melted,
+                   count ~ RE_type * turn_number,
+                   family = poisson())
+
+summary(model_simple)
+
+model_simple_reduced = glm(data = sb_melted,
+                   count ~ RE_type + turn_number,
+                   family = poisson())
+
+comparison = anova(model_simple_reduced, model_simple)
+
+1 - pchisq(comparison$Deviance[2], comparison$Df[2])
+
+```
+
+
+### NP length by turn
+
+Based on the visualization and analyses below, it looks like NP lengths do, in fact, decrease (slightly) over the course of a conversation. Different RE types are also, of course, of different lengths. But interestingly, the extent to which NP lengths decrease is **not** dependent on RE type. That is, there is no significant interaction.
+
+
+```{r}
+df_sb_lengths %>%
+  filter(RE_type %in% c("fullNP", "undeterminedNP", "GerundNP", "PossNP")) %>%
+  ggplot(aes(x = utterance_index,
+             y = np_length,
+             color = RE_type)) +
+  geom_point(stat = "summary", fun.y = "mean") +
+  geom_smooth(method = "lm") +
+  theme_minimal()
+  
+```
+
+
+**NOTE**: The analyses below include only random *intercepts* for speakers. I have also conducted the analysis including random slopes for the effect of **turn** by speaker. While these models did not converge, they produced sensible results, which were analogous to the results when we exclude the random slopes. (E.g. significant main effects of **RE Type** and **Turn** on **NP Length**, but no interaction between the two.s)
+
+```{r}
+df_nps = filter(df_sb_lengths, RE_type %in% c("fullNP", "undeterminedNP", "GerundNP", "PossNP"))
+df_nps$speaker_recoded = paste(df_nps$caller, df_nps$conversation_no, sep = "_")
+
+model_full_interaction = lmer(data = df_nps,
+                                 np_length ~ utterance_index * RE_type + (1 | speaker_recoded) + (1 | conversation_no),
+                                 control=lmerControl(optimizer="bobyqa"),
+                                 REML = FALSE)
+
+model_full_length_plus_re = lmer(data = df_nps,
+                                 np_length ~ utterance_index + RE_type + (1 | speaker_recoded) + (1 | conversation_no),
+                                 control=lmerControl(optimizer="bobyqa"),
+                                 REML = FALSE)
+
+model_full_re = lmer(data = df_nps,
+                         np_length ~ RE_type + (1 | speaker_recoded) + (1 | conversation_no),
+                         control=lmerControl(optimizer="bobyqa"),
+                         REML = FALSE)
+
+model_full_length = lmer(data = df_nps,
+                         np_length ~ utterance_index + (1 | speaker_recoded) + (1 | conversation_no),
+                         control=lmerControl(optimizer="bobyqa"),
+                         REML = FALSE)
+
+model_null = lmer(data = df_nps,
+                  np_length ~ (1 | speaker_recoded) + (1 | conversation_no),
+                  control=lmerControl(optimizer="bobyqa"),
+                  REML = FALSE)
+
+anova(model_full_interaction, model_full_length_plus_re)
+anova(model_full_length_plus_re, model_full_length)
+anova(model_full_length_plus_re, model_full_re)
+anova(model_full_length, model_null)
+```
+
+
+## Discussion
+
+
+
+# CallHome Analysis
+
+## Dataset
+
+As with the Switchboard analysis, we deal with two datasets. The first considers the *count* of REs of each category for each transcribe dialogue turn. The second considers each RE as an observation, and gives us a metric for its *length* (e.g. number of words).
+
+**QUESTION**: Should we only consider turns in which we successfully identified at least one RE?
+
+```{r}
+setwd("/Users/seantrott/Dropbox/UCSD/Research/Ambiguity/Corpus_Analysis/ReferringExpressions")
+
+df_callhome = read_csv("data/processed/callhome_labeled.csv")
+
+```
+
+There are `r nrow(df_callhome)` turns overall, across `r length(unique(df_callhome$file_id))` different conversations. Each turn had an average of `r mean(df_callhome$total_REs)` REs overall. 
+
+
+```{r}
+setwd("/Users/seantrott/Dropbox/UCSD/Research/Ambiguity/Corpus_Analysis/ReferringExpressions")
+
+df_ch_lengths = read_csv("data/processed/callhome_np_lengths.csv")
+```
+
+
+### Calculating estimates for actual turn indices
+
+One problem with the **CallHome** data is that transcriptions didn't always begin at the *beginning* of a file. However, with the use of the timestamps marking each turn's beginning and ending, we can produce estimates for the actual turn index based on the **median** turn length for a conversation.
+
+
+```{r}
+df_callhome$begin_turn2 = df_callhome$begin_turn / 1000
+df_callhome$end_turn2 = df_callhome$end_turn / 1000
+df_callhome$turn_length = df_callhome$end_turn2 - df_callhome$begin_turn2
+# df_callhome$turn_length = df_callhome$turn_length / 1000
+
+test = df_callhome %>%
+  group_by(convo_id) %>%
+  summarise(median_turn_length = median(turn_length, na.rm = TRUE))
+
+test %>%
+  ggplot(aes(x = median_turn_length)) +
+  geom_histogram(bins = 15) +
+  labs(x = "Median turn length (seconds") +
+  theme_minimal()
+
+df_callhome = merge(test, df_callhome)
+
+df_callhome$turn_staggered = round(df_callhome$begin_turn2 / df_callhome$median_turn_length)
+
+df_callhome = na.omit(df_callhome)
+```
+
+Now we have estimates for the "real" turn index (see figure below for distribution).
+
+
+```{r}
+df_callhome %>%
+  ggplot(aes(x = turn_staggered)) +
+  geom_histogram() +
+  labs(x = "Turn",
+       y = "Count",
+       title = "Distribution of turns across dataset") +
+  theme_minimal()
+```
+
+As with Switchboard, these turn estimates aren't evenly distributed. Furthermore, we're primarily interested in characterizing the first part of a conversation.
+
+```{r}
+df_callhome$turn_number = df_callhome$turn_staggered
+```
+
+
+Unfortunately, using these turn estimates, there are only `r scales::percent(nrow(filter(df_callhome, turn_staggered <= 100)) / nrow(df_callhome))` observations from the first 100 (estimated) turns of a conversation. This makes direct comparison with Switchboard difficult.
+
+We also just select the columns we're interested in: utterance index, relevant RE counts, and the speaker (to add as a random effect).
+
+**QUESTION**: How many turns should we select from for CallHome? Equivalent % of Switchboard selected data?
+
+```{r}
+df_callhome$speaker_recoded = paste(df_callhome$speaker, df_callhome$file_id, sep = "_")
+
+df_callhome_critical = df_callhome %>%
+  filter(turn_number <= 400) %>%
+  select(turn_number, speaker_recoded, full_NP, prp_1st, prp_2nd,
+         prp_3rd, poss_NP, proper_NP, noun_noun, undetermined_NP, gerund_NP, wh_np)
+
+```
+
+
+### Reformatting the data
+
+Now we melt the **turn data** into a new format for easier analysis and plotting.
+
+```{r}
+ch_melted = melt(as.data.frame(df_callhome_critical), id=c("turn_number", "speaker_recoded"))
+ch_melted$RE_type = ch_melted$variable
+ch_melted$count = ch_melted$value
+
+```
+
+
+Additionally, for the **length data**, we restrict our analysis to the first 100 turns.
+
+**QUESTION**: Also restrict to certain RE types? (Full NP, PossNP, etc.? Exclude pronouns?)
+
+**TO DO**: Also produce staggered estimates for NP length data.
+```{r}
+# df_ch_lengths = df_ch_lengths %>%
+#   filter(turn_staggered <= 100)
+```
+
+
+## Proportion of each RE Type
+
+As seen below, not all RE types were used equally. 1st-person pronouns are the most frequent RE type, closely followed by 3rd-person pronouns. 
+
+```{r}
+counts = ch_melted %>%
+  group_by(RE_type) %>%
+  summarise(total = sum(count))
+
+counts$proportion = counts$total / sum(counts$total)
+
+```
+
+```{r}
+counts %>%
+  ggplot(aes(x="", y = proportion, fill=RE_type))+
+  geom_bar(width = 1, stat = "identity") + 
+  coord_polar("y", start=0) +
+  labs(x = "",
+       y ="",
+       title = "CallHome RE Distributions") +
+  theme_minimal()
+
+```
+
+## Primary analysis
+
+We are particularly interested in how these proportions shift over time. That is, as a conversation proceeds, are some REs (like full NPs) used less, while others (like 3rd-person pronouns) are used more?
+
+```{r}
+ch_melted %>%
+  ggplot(aes(x = turn_number,
+             y = count,
+             color = RE_type)) +
+  geom_point(stat = "summary", fun.y = "mean") +
+  geom_smooth(method = "lm") +
+  # geom_smooth() +
+  theme_minimal()
+```
+
+
+### RE Type by TUrn
+
+First we do an analysis with a simple Poisson regression, predicting the *count* of a given RE type (full NP, 3rd-person pronoun) as a function of the turn.
+
+Model comparisons using simple Poisson regression (no random effects specified) show that a model including the interaction between **RE Type** and **Turn Number** explains more variance than a model with only the fixed effects.
+
+```{r}
+
+model_simple = glm(data = ch_melted,
+                   count ~ RE_type * turn_number,
+                   family = poisson())
+
+summary(model_simple)
+
+model_simple_reduced = glm(data = ch_melted,
+                   count ~ RE_type + turn_number,
+                   family = poisson())
+
+comparison = anova(model_simple_reduced, model_simple)
+
+1 - pchisq(comparison$Deviance[2], comparison$Df[2])
+
+```
+
+### NP Length by Turn
+
+[[ fill in ]]
+
+## Discussion
+
+# Merging the datasets
+
+Finally, we want to directly compare our datasets against each other to ask:
+
+1. Are certain REs more prevalent in Switchboard than CallHome? E.g., does **Corpus** interact with **RE_type** to predict *count*?  
+2. Is the effect of **turn** dependent on corpus? (E.g., a 3-way interaction)  
+3. Are NPs longer overall in Switchboard than CallHome?  
+4. Is the effect of **turn** on NP length different as a function of corpus?  
+
+## Combine the data
+
+```{r}
+
+sb_melted$corpus = rep("Switchboard", nrow(sb_melted))
+ch_melted$corpus = rep("CallHome", nrow(ch_melted))
+df_merged = rbind(sb_melted, ch_melted)
+```
+
+**TO DO**: Combine length data.
+
+## Analyses
+
+### Does predict the distribution of RE Types?
+
+As seen below, not all RE types were used equally. 1st-person pronouns are the most frequent RE type, closely followed by 3rd-person pronouns. 
+
+```{r}
+
+model_corpus = glm(data = df_merged,
+                  count ~ corpus * RE_type,
+                  family = poisson())
+
+```
+
